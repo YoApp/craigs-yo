@@ -1,6 +1,7 @@
+
 /**
  * Main application file
- */
+ **/
 
 'use strict';
 // Set default node environment to development
@@ -8,95 +9,74 @@ process.env.NODE_ENV = process.env.NODE_ENV || 'development';
 var _ = require('lodash');
 var async = require('async');
 var express = require('express');
-var moment = require('moment');
+var md5 = require('MD5');
 var mongoose = require('mongoose');
-var config = require('./config/environment');
 var request = require('superagent');
+var config = require('./config/environment');
+
 process.on('uncaughtException', function (err) {
   console.log('Caught exception: ' + err);
 });
 
 mongoose.connect(config.mongo.uri, config.mongo.options);
-setTimeout(function () {
-  console.log('This will still run.');
-}, 500);
 
-console.log(config.mongo.uri);
-
-var s = {
-  Subscriber : mongoose.model('Subscriber', new mongoose.Schema({
-    yo: {
-      type: String,
-      unique: true
-    },
-    url: String,
-    text: String
-  })),
-  getPage : function(url, cb) {
-    request.get(url).end(cb);
-  }
-};
-
+var Subscriber = mongoose.model('Subscriber', new mongoose.Schema({
+  yo: {
+    type: String,
+    unique: true
+  },
+  url: String,
+  hash: String
+}));
 
 var app = express();
 var server = require('http').createServer(app);
 require('./config/express')(app);
-require('./routes')(app, s);
+require('./routes')(app);
 
 var yo = (function() {
   var Yo = require('yo-api');
   return new Yo(process.env.YO_API_TOKEN);
 })();
 
+function checkUpdates(sub, cb) {
+  request.get(sub.url).end(function(err, response) {
+    if (err) {
+      console.log(err);
+      return cb();
+    }
+    var hash = md5(response.text);
+    if (sub.hash !== hash) {
+      sub.hash = hash;
+      yo.yo_link(sub.yo, sub.url, function() {
+        console.log('Sent yo to subscriber %s for Craigslist updates.', sub.yo);
+        sub.save(function(err) {
+          if (err) {
+            console.log(err);
+          }
+          return cb();
+        });
+      });
+    } else {
+      cb();
+    }
+  });
+}
 
-var updateSubscription = function(){
-  var i, entry;
-  s.Subscriber
-    .find(function (err, doc) {
-      if(doc)
-      {
-        for(i = 0; i< doc.length; i++){
-          entry = doc[i];
-          s.getPage(entry.url,
-            function (entry,error, response, text) {
-              if (!error && response.statusCode == 200)
-              {
-                if(text != entry.text)
-                {
-                  entry.text = text;
-                  entry.save(function(err) {
-                    if(!err)
-                    {
-                      console.log('OK');
-                    }
-                    else
-                    {
-                      console.log(err);
-                    }
-                  });
-                  console.log('Found new listings for user ' + entry.yo + ' !');
-                  yo.yo(entry.yo, function() {
-                    console.log("Yo'ed user" + entry.yo + ' !');
-                  });
-                }
-                else
-                {
-                  console.log('You are now subscribed!');
-                }
-              }
-              else
-              {
-                console.log(error);
-              }
-            }.bind(this, entry)
-          );
-        }
-      }
+function updateSubscriptions() {
+  Subscriber.find({}).exec(function(err, docs) {
+    if (err) {
+      console.log(err);
+      return;
+    }
+    async.eachSeries(docs, checkUpdates, function() {
+      console.log('Done!');
     });
-};
+  });
+}
 
-var interval = setInterval(updateSubscription, 61000);
-
+updateSubscriptions();
+setInterval(updateSubscriptions, 1800000);
 
 server.listen(config.port, config.ip, function() {
   console.log('Express server listening on %d, in %s mode', config.port, app.get('env'));

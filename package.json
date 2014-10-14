@@ -1,9 +1,15 @@
 {
   "name": "craigs-yo",
-  "version": "0.1.0",
-  "author": "Tejas Manohar <me@tejasmanohar.com>",
+  "version": "0.2.3",
+  "author": {
+    "name": "Tejas Manohar",
+    "email": "me@tejasmanohar.com",
+    "url": "https://tejasmanohar.com"
+  },
+  "homepage": "http://craigsyo-tejasmanohar.rhcloud.com",
   "main": "server/app.js",
   "dependencies": {
+    "MD5": "^1.2.1",
     "async": "^0.9.0",
     "birdeater": "0.0.3",
     "body-parser": "~1.0.0",
@@ -26,7 +32,7 @@
     "static-favicon": "~1.0.1",
     "superagent": "^0.18.2",
     "twit": "^1.1.18",
-    "yo-api": "^0.2.0"
+    "yo-api": "git://github.com/tejas-manohar/node-yo-api.git"
   },
   "devDependencies": {
     "grunt": "~0.4.4",
@@ -82,7 +88,7 @@
     "should": "~3.3.1"
   },
   "engines": {
-    "node": ">=0.10.0"
+    "node": "0.10.30"
   },
   "scripts": {
     "start": "node server/app.js",
